@@ -29,9 +29,14 @@ from openerp import exceptions
 
 from ..services.currency_getter import Currency_getter_factory
 
+# Formatos de fecha. 
+# from openerp.tools import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT
+from openerp.tools import DEFAULT_SERVER_DATETIME_FORMAT as DATETIME_FORMAT
 _logger = logging.getLogger(__name__)
 
 _intervalTypes = {
+    'minutes': lambda interval: relativedelta(minutes=interval),
+    'hours': lambda interval: relativedelta(hours=interval),
     'days': lambda interval: relativedelta(days=interval),
     'weeks': lambda interval: relativedelta(days=7*interval),
     'months': lambda interval: relativedelta(months=interval),
@@ -54,8 +59,8 @@ supported_currency_array = [
     "SLL", "SOS", "SPL", "SRD", "STD", "SVC", "SYP", "SZL", "THB", "TJS",
     "TMM", "TND", "TOP", "TRY", "TTD", "TVD", "TWD", "TZS", "UAH", "UGX",
     "USD", "UYU", "UZS", "VEB", "VEF", "VND", "VUV", "WST", "XAF", "XAG",
-    "XAU", "XCD", "XDR", "XOF", "XPD", "XPF", "XPT", "YER", "ZAR", "ZMK",
-    "ZWD"
+    "XAU", "XBT", "XCD", "XDR", "XOF", "XPD", "XPF", "XPT", "YER", "ZAR", 
+    "ZMK", "ZWD"
 ]
 
 YAHOO_supported_currency_array = [
@@ -122,6 +127,9 @@ PL_NBP_supported_currency_array = [
     "LTL", "MXN", "MYR", "NOK", "NZD", "PHP", "PLN", "RON", "RUB", "SEK",
     "SGD", "THB", "TRY", "UAH", "USD", "XDR", "ZAR"]
 
+bitpay_supported_currency_array = [
+    "XBT"]
+
 supported_currecies = {
     'YAHOO_getter': YAHOO_supported_currency_array,
     'ECB_getter': ECB_supported_currency_array,
@@ -130,13 +138,14 @@ supported_currecies = {
     'CH_ADMIN_getter': CH_ADMIN_supported_currency_array,
     'MX_BdM_getter': MX_BdM_supported_currency_array,
     'PL_NBP_getter': PL_NBP_supported_currency_array,
+    'bitpay_getter': bitpay_supported_currency_array
     }
 
 
 class Currency_rate_update_service(models.Model):
     """Class keep services and currencies that
     have to be updated"""
-    _name = "currency.rate.update.service"
+    _inherit = "currency.rate.update.service"
     _description = "Currency Rate Update"
 
     @api.one
@@ -145,18 +154,7 @@ class Currency_rate_update_service(models.Model):
         if self.max_delta_days < 0:
             raise exceptions.Warning(_('Max delta days must be >= 0'))
 
-    @api.one
-    @api.constrains('interval_number')
-    def _check_interval_number(self):
-        if self.interval_number < 0:
-            raise exceptions.Warning(_('Interval number must be >= 0'))
 
-    @api.onchange('interval_number')
-    def _onchange_interval_number(self):
-        if self.interval_number == 0:
-            self.note = '%s Service deactivated. Currencies will no longer ' \
-                        'be updated. \n%s' % (fields.Datetime.now(),
-                                              self.note and self.note or '')
 
     @api.onchange('service')
     def _onchange_service(self):
@@ -181,56 +179,31 @@ class Currency_rate_update_service(models.Model):
 
     # List of webservicies the value sould be a class name
     service = fields.Selection(
-        [('CH_ADMIN_getter', 'Admin.ch'),
-         ('ECB_getter', 'European Central Bank'),
-         ('YAHOO_getter', 'Yahoo Finance'),
-         # Added for polish rates
-         ('PL_NBP_getter', 'National Bank of Poland'),
-         # Added for mexican rates
-         ('MX_BdM_getter', 'Bank of Mexico'),
-         # Bank of Canada is using RSS-CB
-         # http://www.cbwiki.net/wiki/index.php/Specification_1.1
-         # This RSS format is used by other national banks
-         #  (Thailand, Malaysia, Mexico...)
-         ('CA_BOC_getter', 'Bank of Canada - noon rates'),
-         # Added for romanian rates
-         ('RO_BNR_getter', 'National Bank of Romania')
-         ],
-        string="Webservice to use",
-        required=True)
-    # List of currencies available on webservice
-    currency_list = fields.Many2many('res.currency',
-                                     'res_currency_update_avail_rel',
-                                     'service_id',
-                                     'currency_id',
-                                     string='Currencies available')
-    # List of currency to update
-    currency_to_update = fields.Many2many('res.currency',
-                                          'res_currency_auto_update_rel',
-                                          'service_id',
-                                          'currency_id',
-                                          string='Currencies to update with '
-                                          'this service')
-    # Link with company
-    company_id = fields.Many2one(
-        'res.company', 'Company',
-        default=lambda self: self.env['res.company']._company_default_get(
-            'currency.rate.update.service'))
-    # Note fileds that will be used as a logger
-    note = fields.Text('Update logs')
+        selection_add=
+        [
+        # Bitpay exchange rate. 
+        ('bitpay_getter','Bitpay')
+         ])
+
+
+
     max_delta_days = fields.Integer(
         string='Max delta days', default=4, required=True,
         help="If the time delta between the rate date given by the "
         "webservice and the current date exceeds this value, "
         "then the currency rate is not updated in OpenERP.")
-    interval_type = fields.Selection([
-        ('days', 'Day(s)'),
-        ('weeks', 'Week(s)'),
-        ('months', 'Month(s)')],
-        string='Currency update frequency',
-        default='days')
+    interval_type = fields.Selection(
+        selection_add=[
+        ('minutes','Minute(s)'),
+        ('hours','Hour(s)')
+        ]
+        )
     interval_number = fields.Integer(string='Frequency', default=1)
-    next_run = fields.Date(string='Next run on', default=fields.Date.today())
+    next_run = fields.Datetime(
+                               string='Next run on', 
+                               default=datetime.now().strftime(DATETIME_FORMAT)
+
+                               )
 
     _sql_constraints = [('curr_service_unique',
                          'unique (service, company_id)',
@@ -267,7 +240,7 @@ class Currency_rate_update_service(models.Model):
             note = self.note or ''
             try:
                 # We initalize the class that will handle the request
-                # and return a dict of rate
+                # and return res, a dict of rates, pairing 
                 getter = factory.register(self.service)
                 curr_to_fetch = map(lambda x: x.name,
                                     self.currency_to_update)
@@ -276,9 +249,11 @@ class Currency_rate_update_service(models.Model):
                     main_currency.name,
                     self.max_delta_days
                     )
+                # Only replace microseconds, leave the rest as it is 
+                # when we get the time. 
                 rate_name = \
                     fields.Datetime.to_string(datetime.utcnow().replace(
-                        hour=0, minute=0, second=0, microsecond=0))
+                        microsecond=0))
                 for curr in self.currency_to_update:
                     if curr.id == main_currency.id:
                         continue
@@ -299,16 +274,18 @@ class Currency_rate_update_service(models.Model):
                             'Updated currency %s via service %s',
                             curr.name, self.service)
 
-                # Show the most recent note at the top
+                # Show the most recent note at the top.
+                # Changed from today() to now()
                 msg = '%s \n%s currency updated. %s' % (
                     log_info or '',
-                    fields.Datetime.to_string(datetime.today()),
+                    fields.Datetime.to_string(datetime.now()),
                     note
                 )
                 self.write({'note': msg})
             except Exception as exc:
+                # Changed from today() to now()
                 error_msg = '\n%s ERROR : %s %s' % (
-                    fields.Datetime.to_string(datetime.today()),
+                    fields.Datetime.to_string(datetime.now()),
                     repr(exc),
                     note
                 )
@@ -317,7 +294,7 @@ class Currency_rate_update_service(models.Model):
             if self._context.get('cron', False):
                 midnight = time(0, 0)
                 next_run = (datetime.combine(
-                            fields.Date.from_string(self.next_run),
+                            fields.Datetime.from_string(self.next_run),
                             midnight) +
                             _intervalTypes[str(self.interval_type)]
                             (self.interval_number)).date()
@@ -326,11 +303,16 @@ class Currency_rate_update_service(models.Model):
     @api.multi
     def run_currency_update(self):
         # Update currency at the given frequence
-        services = self.search([('next_run', '=', fields.Date.today())])
+        # Cambiado today() a now()
+
+        # Obtenemos la fecha de ahora y la revisamos al minuto.
+        # No se usa DATETIME_FORMAT porque incluye los segundos y queremos una
+        # búsqueda más genérica. 
+        services = self.search(
+                              [('next_run', 
+                                'ilike', 
+                                datetime.now().strftime("%Y-%m-%d %H:%M")
+                              )]
+                              )
         services.with_context(cron=True).refresh_currency()
 
-    @api.model
-    def _run_currency_update(self):
-        _logger.info('Starting the currency rate update cron')
-        self.run_currency_update()
-        _logger.info('End of the currency rate update cron')

@@ -1,3 +1,3 @@
 # -*- coding: utf-8 -*-
 
-from . import bitcoin_transaction
+from . import currency_rate_update
