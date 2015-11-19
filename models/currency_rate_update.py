@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 ##############################################################################
 #
-#    Copyright (c) 2009 CamptoCamp. All rights reserved.
-#    @author Nicolas Bessi
+#    @author : Rubén Cabrera
+#    This addon is a modification of the one published by Nicolas Bessi
+#    from CamptoCamp
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU Affero General Public License as
@@ -184,8 +185,6 @@ class Currency_rate_update_service(models.Model):
         # Bitpay exchange rate. 
         ('bitpay_getter','Bitpay')
          ])
-
-
 
     max_delta_days = fields.Integer(
         string='Max delta days', default=4, required=True,

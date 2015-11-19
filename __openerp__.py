@@ -17,21 +17,13 @@
     # for the full list
     'category': 'Finance',
     'version': '0.1',
-    'external_dependencies': ['python': 'bitpay-py2']
+    # 'external_dependencies': ['python': 'bitpay-py2']
 
     # any module necessary for this one to work correctly
     'depends': ['base',
                 'currency_rate_update',
                 'currency_rate_date_check'],
 
-    # always loaded
-    'data': [
-        # 'security/ir.model.access.csv',
-        #'templates.xml',
-    ],
-    # only loaded in demonstration mode
-    'demo': [
-        #'demo.xml',
-    ],
+    
 
 }
