@@ -22,6 +22,8 @@
 ##############################################################################
 
 from currency_rate_update.services import Currency_getter_interface
+import logging
+_logger = logging.getLogger(__name__)
 
 
 class bitpay_getter(Currency_getter_interface):
@@ -31,7 +33,7 @@ class bitpay_getter(Currency_getter_interface):
      supported_currency_array = [
         'AED', 'AFN', 'ALL', 'AMD', 'ANG', 'AOA', 'ARS', 'AUD', 'AWG', 'AZN',
         'BAM', 'BBD', 'BDT', 'BGN', 'BHD', 'BIF', 'BMD', 'BND', 'BOB', 'BRL',
-        'BSD', 'BTN', 'BWP', 'BYR', 'BZD', 'CAD', 'CDF', 'CHF', 'CLP', 'CNY',
+        'BSD', 'BTC', 'BTN', 'BWP', 'BYR', 'BZD', 'CAD', 'CDF', 'CHF', 'CLP', 'CNY',
         'COP', 'CRC', 'CUP', 'CVE', 'CYP', 'CZK', 'DJF', 'DKK', 'DOP', 'DZD',
         'EEK', 'EGP', 'ERN', 'ETB', 'EUR', 'FJD', 'FKP', 'GBP', 'GEL', 'GGP',
         'GHS', 'GIP', 'GMD', 'GNF', 'GTQ', 'GYD', 'HKD', 'HNL', 'HRK', 'HTG',
@@ -45,7 +47,7 @@ class bitpay_getter(Currency_getter_interface):
         'SLL', 'SOS', 'SPL', 'SRD', 'STD', 'SVC', 'SYP', 'SZL', 'THB', 'TJS',
         'TMM', 'TND', 'TOP', 'TRY', 'TTD', 'TVD', 'TWD', 'TZS', 'UAH', 'UGX',
         'USD', 'UYU', 'UZS', 'VEB', 'VEF', 'VND', 'VUV', 'WST', 'XAF', 'XAG',
-        'XAU', 'XBT', 'XCD', 'XDR', 'XOF', 'XPD', 'XPF', 'XPT', 'YER', 'ZAR', 
+        'XAU', 'XBT', 'XCD', 'XDR', 'XOF', 'XPD', 'XPF', 'XPT', 'YER', 'ZAR',
         'ZMK', 'ZWD'
     ]
 
@@ -55,22 +57,25 @@ class bitpay_getter(Currency_getter_interface):
         """
         Get currency rates.
         - currency_array:
-            array with the codes of the currencies which value 
-            we want to retrieve. 
+            array with the codes of the currencies which value
+            we want to retrieve.
         """
-        # If Bitcoin is our main currency, all the rates we obtain are right,
-        # in any other case, we need to look for our main currency and get
-        # the inverse of the bitcoin price
+        # If Bitcoin is our main currency, all the rates we obtain are right as
+        # bitpay gives them to us. In any other case, we need to look for our
+        # main currency and get the inverse of the bitcoin price.
         self.validate_cur(main_currency)
-        # URL de la API de bitpay. Nos devuelve un diccionario con el BTC
+        map(lambda x: self.validate_cur(x),currency_array)
+        # URL de la API de bitpay. Nos devuelve un diccionario (objeto JSON)
+        # con las tasas de cambio de XBT (figura como BTC)
         url = ('https://bitpay.com/api/rates')
         if main_currency in currency_array:
             # Get the main currency of the company out of the ones we want
-            # to retrieve. 
-            currency_array.remove(main_currency)        
-
-
-        res = self.get_url(url)
+            # to retrieve.
+            currency_array.remove(main_currency)
+        _logger.debug("Bitpay rates service : connecting...")
+        # Lo que obtenemos aquí es un string:
+        import json
+        res = json.loads(self.get_url(url))
 
         for currency_dictionary in res:
             if currency_dictionary['code'] in currency_array:
@@ -81,13 +86,13 @@ class bitpay_getter(Currency_getter_interface):
         # structure (key, value):
         #     ('code', ISO currency code)
         #     ('name', currency name)
-        #     ('rate', current Bitcoin price for this currency) 
+        #     ('rate', current Bitcoin price for this currency)
 
         # for curr in currency_array:
-        #     self.validate_cur(curr) 
-        #    
+        #     self.validate_cur(curr)
+        #
         #     # val = res.split(',')[1]
-        #     
+        #
         #     if val:
         #         self.updated_currency[curr] = val
         #     else:

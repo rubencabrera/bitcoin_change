@@ -30,7 +30,7 @@ from openerp import exceptions
 
 from ..services.currency_getter import Currency_getter_factory
 
-# Formatos de fecha. 
+# Formatos de fecha.
 # from openerp.tools import DEFAULT_SERVER_DATE_FORMAT, DEFAULT_SERVER_DATETIME_FORMAT
 from openerp.tools import DEFAULT_SERVER_DATETIME_FORMAT as DATETIME_FORMAT
 _logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ supported_currency_array = [
     "SLL", "SOS", "SPL", "SRD", "STD", "SVC", "SYP", "SZL", "THB", "TJS",
     "TMM", "TND", "TOP", "TRY", "TTD", "TVD", "TWD", "TZS", "UAH", "UGX",
     "USD", "UYU", "UZS", "VEB", "VEF", "VND", "VUV", "WST", "XAF", "XAG",
-    "XAU", "XBT", "XCD", "XDR", "XOF", "XPD", "XPF", "XPT", "YER", "ZAR", 
+    "XAU", "XBT", "XCD", "XDR", "XOF", "XPD", "XPF", "XPT", "YER", "ZAR",
     "ZMK", "ZWD"
 ]
 
@@ -143,7 +143,7 @@ supported_currecies = {
     }
 
 
-class Currency_rate_update_service(models.Model):
+class CurrencyRateUpdateService(models.Model):
     """Class keep services and currencies that
     have to be updated"""
     _inherit = "currency.rate.update.service"
@@ -154,8 +154,6 @@ class Currency_rate_update_service(models.Model):
     def _check_max_delta_days(self):
         if self.max_delta_days < 0:
             raise exceptions.Warning(_('Max delta days must be >= 0'))
-
-
 
     @api.onchange('service')
     def _onchange_service(self):
@@ -182,32 +180,20 @@ class Currency_rate_update_service(models.Model):
     service = fields.Selection(
         selection_add=
         [
-        # Bitpay exchange rate. 
+        # Bitpay exchange rate.
         ('bitpay_getter','Bitpay')
          ])
-
-    max_delta_days = fields.Integer(
-        string='Max delta days', default=4, required=True,
-        help="If the time delta between the rate date given by the "
-        "webservice and the current date exceeds this value, "
-        "then the currency rate is not updated in OpenERP.")
     interval_type = fields.Selection(
         selection_add=[
         ('minutes','Minute(s)'),
         ('hours','Hour(s)')
         ]
         )
-    interval_number = fields.Integer(string='Frequency', default=1)
+    # Modified to allow datetime instead of only date.
     next_run = fields.Datetime(
-                               string='Next run on', 
-                               default=datetime.now().strftime(DATETIME_FORMAT)
-
+                               string='Next run on',
+                               default=datetime.now().strftime(DATETIME_FORMAT),
                                )
-
-    _sql_constraints = [('curr_service_unique',
-                         'unique (service, company_id)',
-                         _('You can use a service only one time per '
-                           'company !'))]
 
     @api.one
     def refresh_currency(self):
@@ -239,7 +225,7 @@ class Currency_rate_update_service(models.Model):
             note = self.note or ''
             try:
                 # We initalize the class that will handle the request
-                # and return res, a dict of rates, pairing 
+                # and return res, a dict of rates.
                 getter = factory.register(self.service)
                 curr_to_fetch = map(lambda x: x.name,
                                     self.currency_to_update)
@@ -248,8 +234,8 @@ class Currency_rate_update_service(models.Model):
                     main_currency.name,
                     self.max_delta_days
                     )
-                # Only replace microseconds, leave the rest as it is 
-                # when we get the time. 
+                # Only replace microseconds, leave the rest as it is
+                # when we get the time.
                 rate_name = \
                     fields.Datetime.to_string(datetime.utcnow().replace(
                         microsecond=0))
@@ -305,13 +291,13 @@ class Currency_rate_update_service(models.Model):
         # Cambiado today() a now()
 
         # Obtenemos la fecha de ahora y la revisamos al minuto.
-        # No se usa DATETIME_FORMAT porque incluye los segundos y queremos una
-        # búsqueda más genérica. 
+        # No se usa DATETIME_FORMAT porque incluye los segundos y no vamos a
+        # usar tanto detalle (de momento).
         services = self.search(
-                              [('next_run', 
-                                'ilike', 
+                              [('next_run',
+                                '<=',
+                                #'ilike',
                                 datetime.now().strftime("%Y-%m-%d %H:%M")
                               )]
                               )
         services.with_context(cron=True).refresh_currency()
-

@@ -6,7 +6,7 @@
         Add bitcoin as a currency and enable exchange updates.""",
 
     'description': """
-        Add bitcoin as a currency and enable exchange updates. 
+        Add bitcoin as a currency and enable exchange updates.
     """,
 
     'author': "bisneSmart",
@@ -21,9 +21,13 @@
 
     # any module necessary for this one to work correctly
     'depends': ['base',
+                # Modules from the OCA repo account-financial-tools at:
+                # https://github.com/OCA/account-financial-tools
                 'currency_rate_update',
                 'currency_rate_date_check'],
+    'data': ['data/currency_xbt_BTC.xml',
+    ]
 
-    
+
 
 }
